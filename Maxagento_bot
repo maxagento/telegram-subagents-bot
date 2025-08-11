@@ -1,0 +1,55 @@
+import os
+from telegram import Update, ReplyKeyboardRemove
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+
+# Этапы диалога
+CLIENT_INFO, AGENT_INFO = range(2)
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Здравствуйте! Вас приветствует интеллектуальный помощник Максима Некрасова.\n"
+        "Пожалуйста, напишите номер телефона клиента и услугу (продажа или покупка недвижимости)."
+    )
+    return CLIENT_INFO
+
+async def client_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["client_info"] = update.message.text
+    await update.message.reply_text(
+        "Спасибо! Теперь напишите ваш номер телефона (привязанный к карте) и название банка.\n"
+        "Деньги отправляются сразу же после сделки!"
+    )
+    return AGENT_INFO
+
+async def agent_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["agent_info"] = update.message.text
+
+    client_info = context.user_data["client_info"]
+    agent_info = context.user_data["agent_info"]
+
+    await update.message.reply_text(
+        f"✅ Данные получены!\n\n"
+        f"📞 Клиент: {client_info}\n"
+        f"💳 Агент: {agent_info}\n"
+        "Мы свяжемся с вами после завершения сделки."
+    )
+    return ConversationHandler.END
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Диалог отменён.", reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
+if __name__ == '__main__':
+    token = os.getenv("8334436860:AAH_kaoR2BIYeetZ6n-eweHTq_TBN07O6YI")
+    app = ApplicationBuilder().token(token).build()
+
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            CLIENT_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, client_info)],
+            AGENT_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, agent_info)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    app.add_handler(conv_handler)
+    app.run_polling()
